@@ -1,0 +1,9 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+qrcode.png
+*.zip
+.zip
+info.md

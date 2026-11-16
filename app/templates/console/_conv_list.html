@@ -1,0 +1,8 @@
+{% for c in convs %}
+<a class="conv {{ 'on' if current and current.id == c.id }}" href="/console/conversations/{{ c.id }}" data-status="{{ c.status }}" data-search="{{ (c.label ~ ' ' ~ c.preview)|lower }}">
+  <div class="av">{{ c.label|initial }}</div>
+  <div class="cbody"><div class="ctop"><span class="cname">{{ c.label }}</span><span class="ctime">{{ c.last_at|ago }}</span></div>
+  <div class="cprev {{ 'unread' if c.last_dir == 'in' }}">{% if c.last_dir == 'out' %}<span class="tick">✓</span>{% endif %}{{ c.preview }}</div>
+  <div class="cbadges"><span class="badge b-{{ c.status }}">{{ 'Humain' if c.status == 'human' else ('Clôturée' if c.status == 'closed' else 'Agent IA') }}</span>{% if c.paid_orders %}<span class="badge b-paid">Achat payé</span>{% endif %}</div></div>
+</a>
+{% else %}<div class="empty">Aucune conversation.<br>Écrivez à la page Messenger pour commencer.</div>{% endfor %}

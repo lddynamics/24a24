@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Publications{% endblock %}
+{% block content %}
+<div class="top"><div><h1>Publications</h1><div class="sub">Page Facebook de {{ tenant_name }} : rédigez, programmez et publiez, avec validation avant chaque envoi.</div></div>
+  <div class="actions"><button class="btn ghost sm" id="testconn" type="button">Tester la connexion</button>
+    <a class="btn ghost sm {{ 'on' if view == 'list' }}" href="/console/posts">Liste</a><a class="btn ghost sm" href="/console/posts?view=calendar">Calendrier</a>
+    <a class="btn" href="/console/posts/new">+ Nouvelle publication</a></div></div>
+<details class="card" style="margin-bottom:14px;padding:12px 16px"><summary style="cursor:pointer;font-weight:600">À savoir avant de publier</summary>
+  <div class="sub" style="margin-top:8px;line-height:1.6">• Le jeton de la page doit avoir les permissions <b>pages_manage_posts</b>, <b>pages_read_engagement</b> et <b>pages_show_list</b> (voir le README, « Page Facebook »).<br>
+  • Tant que l'application Meta est en <b>mode développement</b>, seules les personnes qui ont un rôle sur l'application (administrateur, développeur, testeur) voient ces publications.<br>
+  • Rien n'est publié sans votre action : « Publier maintenant » ou « Programmer ». La programmation est assurée par le worker (il doit tourner).</div></details>
+{% if view == 'calendar' %}
+<div class="top" style="margin-bottom:10px"><h2 style="margin:0">{{ title }}</h2><div class="actions"><a class="btn ghost sm" href="/console/posts?view=calendar&month={{ prev }}">←</a><a class="btn ghost sm" href="/console/posts?view=calendar">Aujourd'hui</a><a class="btn ghost sm" href="/console/posts?view=calendar&month={{ next }}">→</a></div></div>
+<div class="card" style="padding:8px;overflow:auto"><table class="cal"><thead><tr>{% for d in ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'] %}<th>{{ d }}</th>{% endfor %}</tr></thead><tbody>
+{% for week in weeks %}<tr>{% for day in week %}<td class="{{ 'out' if not day.in_month }} {{ 'today' if day.today }}"><div class="d"><span>{{ day.date.day }}</span><a href="/console/posts/new?date={{ day.date.isoformat() }}" title="Nouvelle publication ce jour-là">+</a></div>
+{% for p in day.posts %}<a class="chipp b-{{ p.status }}" href="/console/posts/{{ p.id }}" title="{{ p.message }}">{{ p.day_at|local('%H:%M') }} · {{ p.message or '(image)' }}</a>{% endfor %}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+{% else %}
+<div class="tabs"><a class="tab {{ 'on' if not status }}" href="/console/posts">Toutes</a>{% for key, label in labels.items() %}{% if key != 'deleted' or counts.get('deleted') %}<a class="tab {{ 'on' if status == key }}" href="/console/posts?status={{ key }}">{{ label }}{% if counts.get(key) %} · {{ counts[key] }}{% endif %}</a>{% endif %}{% endfor %}</div>
+{% if posts %}<div class="pgrid">{% for p in posts %}<a class="pcard" href="/console/posts/{{ p.id }}">
+  {% if p.has_image %}<div class="thumb" style="background-image:url('/console/post-media/{{ p.id }}')"></div>{% endif %}
+  <div class="body"><div class="actions" style="justify-content:space-between"><span class="badge b-{{ p.status }}">{{ p.label }}</span>{% if p.source == 'ai' %}<span class="badge">✨ IA</span>{% endif %}</div>
+  <div class="msg">{{ p.message or '(image seule)' }}</div>
+  {% if p.error and p.status in ('failed', 'scheduled') %}<div class="warn">{{ p.error }}</div>{% endif %}
+  <div class="foot"><span>{% if p.status == 'scheduled' %}Prévue le {{ p.scheduled_for|local }}{% elif p.status == 'published' %}Publiée le {{ p.published_at|local }}{% else %}Modifiée {{ p.updated_at|ago }}{% endif %}</span>
+  {% if p.status == 'published' and p.reactions is not none %}<span>👍 {{ p.reactions }} · 💬 {{ p.comments }} · ↗ {{ p.shares }}</span>{% endif %}</div></div></a>{% endfor %}</div>
+{% else %}<div class="card"><div class="empty"><p>Aucune publication{{ ' avec ce statut' if status }}.</p><a class="btn" href="/console/posts/new">Créer la première publication</a></div></div>{% endif %}
+{% endif %}
+{% endblock %}
+{% block scripts %}<script>
+function toast(t,err){const d=document.createElement('div');d.className='toast'+(err?' err':'');d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),6000);}
+document.getElementById('testconn').onclick=async()=>{
+  try{const r=await fetch('/console/api/social/connection',{credentials:'same-origin'});const j=await r.json();
+    if(j.ok) toast('Connecté à la page « '+j.name+' » (identifiant '+j.id+'). La permission de publier est vérifiée à la première publication.'); else toast(j.error,true);}
+  catch(e){toast('Test impossible.',true);}
+};
+</script>{% endblock %}

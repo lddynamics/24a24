@@ -1,0 +1,6 @@
+<div class="msg msg-{{ m.author }}" data-id="{{ m.id }}" data-at="{{ m.at.isoformat() }}" data-day="{{ m.day }}"><div class="bubble">
+{% if m.author == 'agent' %}<div class="who">Agent IA</div>{% elif m.author == 'human' %}<div class="who">Vous</div>{% endif %}
+{% if m.image_url %}<a href="{{ m.image_url }}" target="_blank" rel="noopener"><img class="pic" src="{{ m.image_url }}" alt="Photo" loading="lazy"></a>{% if m.text %}<div class="tr">{{ m.text }}</div>{% endif %}{% if m.note %}<div class="note">Vu par l'agent : {{ m.note }}</div>{% endif %}
+{% elif m.audio_url %}<audio controls preload="none" src="{{ m.audio_url }}"></audio>{% if m.text %}<div class="tr">« {{ m.text }} »</div>{% endif %}
+{% elif m.text %}<div class="txt">{{ m.text }}</div>{% endif %}
+<div class="t">{{ m.time }}{% if m.author in ('agent', 'human') %} {% if m.delivery == 'failed' %}<span class="fail">⚠ non envoyé</span>{% else %}✓{% endif %}{% endif %}</div></div></div>

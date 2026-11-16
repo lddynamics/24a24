@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Catalogue{% endblock %}
+{% block content %}
+<div class="top"><div><h1>Catalogue</h1><div class="sub">Ce que votre employé IA peut proposer et vendre. Les modifications sont immédiates.</div></div>
+  <div class="actions"><input id="filter" placeholder="Rechercher…" style="width:200px"><a class="btn" href="/console/catalog/new">+ Nouveau produit</a></div></div>
+<div class="card">{% if products %}<table id="ptable"><thead><tr><th>Produit</th><th>Catégorie</th><th class="num">Prix</th><th>Stock</th><th>Visibilité</th><th></th></tr></thead><tbody>
+{% for p in products %}{% set st = stock(p) %}<tr data-search="{{ (p.name ~ ' ' ~ p.id ~ ' ' ~ p.category)|lower }}">
+<td><div class="pcell">{% if p.cover_image_id %}<img class="pthumb" src="/console/catalog/images/{{ p.cover_image_id }}" alt="" loading="lazy">{% else %}<span class="pthumb none" title="Aucune photo">📷</span>{% endif %}<div><b>{{ p.name }}</b><div class="mu sm">{{ p.id }} · {% if p.image_count %}{{ p.image_count }} photo{{ 's' if p.image_count > 1 }}{% else %}<span class="stock-low">sans photo</span>{% endif %}</div></div></div></td><td>{{ p.category or '—' }}</td><td class="num">{{ p.price|fcfa }}</td>
+<td>{% if st == 0 %}<span class="stock-out">Épuisé</span>{% else %}<span class="{{ 'stock-low' if st <= 3 }}">{{ st }} pièce{{ 's' if st > 1 }}</span>{% endif %}<div class="mu sm">{{ p.variants|length }} variante{{ 's' if p.variants|length > 1 }}</div></td>
+<td><form method="post" action="/console/catalog/{{ p.id }}/toggle" style="margin:0"><button class="badge b-{{ 'on' if p.active else 'off' }}" style="border:0;cursor:pointer" title="Cliquer pour changer" type="submit">{{ 'Visible par l\'agent' if p.active else 'Masqué' }}</button></form></td>
+<td class="num"><div class="actions" style="justify-content:flex-end"><a class="btn ghost sm" href="/console/catalog/{{ p.id }}/edit">Modifier</a>
+<form method="post" action="/console/catalog/{{ p.id }}/delete" style="margin:0" onsubmit="return confirm('Supprimer ce produit définitivement ? Les commandes déjà passées ne sont pas modifiées.')"><button class="btn danger sm" type="submit">Supprimer</button></form></div></td></tr>{% endfor %}
+</tbody></table>
+{% else %}<div class="empty"><p>Votre catalogue est vide : l'agent ne pourra rien proposer.</p><div class="actions" style="justify-content:center"><a class="btn" href="/console/catalog/new">Ajouter un produit</a>
+<form method="post" action="/console/catalog/import" style="margin:0"><button class="btn ghost" type="submit">Importer le catalogue d'exemple</button></form></div></div>{% endif %}</div>
+{% endblock %}
+{% block scripts %}<script>
+const f=document.getElementById('filter'); if(f) f.addEventListener('input',()=>{const q=f.value.toLowerCase().trim();document.querySelectorAll('#ptable tbody tr').forEach(r=>{r.style.display=r.dataset.search.includes(q)?'':'none';});});
+</script>{% endblock %}

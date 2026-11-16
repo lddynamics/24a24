@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Commande {{ o.reference }}{% endblock %}
+{% block content %}
+<div class="top"><div><a class="sub" href="/console/orders">← Commandes</a><h1>{{ o.reference }} <span class="badge b-{{ o.status }}" style="vertical-align:middle">{{ o.status|order_label }}</span></h1><div class="sub">Créée le {{ o.created_at|local('%d/%m/%Y à %H:%M') }}</div></div>
+  <div class="actions"><a class="btn ghost sm" href="/console/conversations/{{ o.conversation_id }}">Voir la conversation</a>
+  {% for a in actions %}<form method="post" action="/console/orders/{{ o.id }}/status" style="margin:0"><input type="hidden" name="status" value="{{ a }}"><button class="btn sm {{ 'danger' if a == 'cancelled' }}" type="submit" {% if a == 'cancelled' %}onclick="return confirm('Annuler cette commande ?')"{% endif %}>{{ 'Marquer comme livrée' if a == 'delivered' else 'Annuler la commande' }}</button></form>{% endfor %}</div></div>
+<div class="grid two">
+  <div class="card"><h2>Articles</h2><table><thead><tr><th>Article</th><th>Taille / couleur</th><th class="num">Qté</th><th class="num">Prix</th><th class="num">Total</th></tr></thead><tbody>
+  {% for it in o['items'] %}<tr><td>{{ it.name }}<div class="mu sm">{{ it.product_id }}</div></td><td>{{ it.size }} / {{ it.color }}</td><td class="num">{{ it.quantity }}</td><td class="num">{{ it.unit_price|fcfa }}</td><td class="num">{{ it.line_total|fcfa }}</td></tr>{% endfor %}
+  <tr><td colspan="4" class="num mu">Sous-total</td><td class="num">{{ o.subtotal|fcfa }}</td></tr><tr><td colspan="4" class="num mu">Livraison ({{ o.delivery_zone }})</td><td class="num">{{ o.delivery_fee|fcfa }}</td></tr>
+  <tr><td colspan="4" class="num"><b>Total</b></td><td class="num"><b>{{ o.total|fcfa }}</b></td></tr></tbody></table></div>
+  <div class="grid">
+    <div class="card"><h2>Client et livraison</h2><div><b>{{ o.customer_name }}</b></div><div>{{ o.customer_phone }}</div><div class="mu sm" style="margin-top:6px">{{ o.delivery_zone }} · {{ o.delivery_address }}</div><div class="mu sm" style="margin-top:6px">Via {{ o.contact_label }}</div></div>
+    <div class="card"><h2>Paiements</h2>{% for p in o.payments %}<div style="padding:8px 0;border-bottom:1px solid #eef3f0"><span class="badge b-{{ 'paid' if p.status == 'succeeded' else ('failed' if p.status == 'failed' else 'awaiting_payment') }}">{{ {'succeeded': 'Réussi', 'failed': 'Échoué', 'pending': 'En attente'}[p.status] }}</span> {{ p.amount|fcfa }}
+      <div class="mu sm">{{ p.provider }} · transaction {{ p.provider_transaction_id }} · {{ p.created_at|local }}{% if p.paid_at %} · payé le {{ p.paid_at|local }}{% endif %}</div></div>{% else %}<div class="mu">Aucun paiement initié.</div>{% endfor %}</div>
+  </div>
+</div>
+{% endblock %}

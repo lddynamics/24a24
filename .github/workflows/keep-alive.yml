@@ -1,0 +1,20 @@
+# Le plan gratuit de Render endort le service après 15 min sans requête (et le worker avec lui).
+# Ce workflow le réveille régulièrement. GitHub peut retarder les tâches planifiées de quelques minutes :
+# en complément, utiliser UptimeRobot (gratuit, toutes les 5 min) pour la semaine de la présentation.
+# Variables (Settings > Secrets and variables > Actions > Variables) : APP_URL = https://<service-agent24>.onrender.com
+# et EVOLUTION_URL = https://<service-evolution>.onrender.com
+name: Keep alive
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    if: ${{ vars.APP_URL != '' }}
+    steps:
+      - run: curl -fsS --retry 3 --retry-delay 20 --max-time 90 "${{ vars.APP_URL }}/health"
+      - name: Evolution (WhatsApp)
+        if: ${{ vars.EVOLUTION_URL != '' }}
+        run: curl -fsS --retry 3 --retry-delay 20 --max-time 90 "${{ vars.EVOLUTION_URL }}/"

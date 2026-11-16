@@ -1,0 +1,130 @@
+# Render Blueprint : API + worker dans UN seul service gratuit (le plan gratuit n'a pas de « background worker »).
+# La base est sur Supabase (voir docs/DEPLOIEMENT.md). Les valeurs « sync: false » se saisissent dans le tableau de bord Render.
+services:
+  - type: web
+    name: agent24
+    runtime: python
+    plan: free
+    region: frankfurt                 # le plus proche du Bénin parmi les régions Render ; prendre la même région que Supabase
+    branch: main
+    autoDeployTrigger: checksPass     # redéploie seulement si la CI GitHub Actions est verte
+    buildCommand: pip install -r requirements.txt
+    # Migrations puis serveur. --proxy-headers : Render termine le HTTPS devant l'application (cookies « Secure », URLs https).
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: EMBEDDED_WORKER
+        value: "true"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: SEND_MODE
+        value: messenger              # "console" = n'envoie rien (affiche seulement dans les logs)
+      # --- Base de données (Supabase, pooler « Session mode », port 5432) ---
+      - key: DATABASE_URL             # rôle applicatif agent24_app (soumis à la RLS)
+        sync: false
+      - key: MIGRATIONS_DATABASE_URL  # rôle postgres (propriétaire) : migrations et scripts d'administration
+        sync: false
+      # --- Secrets de l'application ---
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: MESSENGER_VERIFY_TOKEN
+        sync: false
+      - key: CONSOLE_PASSWORD
+        sync: false
+      - key: CONSOLE_TENANT_ID
+        sync: false
+      - key: CONSOLE_UTC_OFFSET_HOURS
+        value: "1"
+      # --- IA ---
+      - key: AGENT_MODEL
+        value: nvidia/nemotron-3-super-120b-a12b
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_BASE_URL
+        value: https://integrate.api.nvidia.com/v1
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: VISION_MODEL
+        sync: false
+      # --- Paiement FedaPay ---
+      - key: FEDAPAY_SECRET_KEY
+        sync: false
+      - key: FEDAPAY_ENVIRONMENT
+        value: sandbox
+      - key: FEDAPAY_WEBHOOK_SECRET
+        sync: false
+      - key: FEDAPAY_CUSTOMER_EMAIL
+        sync: false
+      # --- WhatsApp non officiel (Evolution API) : voir docs/DEPLOIEMENT.md, section optionnelle ---
+      - key: EVOLUTION_API_URL
+        sync: false
+      - key: EVOLUTION_API_KEY
+        sync: false
+      - key: EVOLUTION_WEBHOOK_SECRET
+        sync: false
+
+  # ---------------------------------------------------------------------------------------------------------------
+  # Evolution API : passerelle WhatsApp non officielle. Base = Supabase (schéma « evolution »), clés de session = Key Value.
+  # ---------------------------------------------------------------------------------------------------------------
+  - type: web
+    name: evolution
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./evolution/Dockerfile
+    dockerContext: ./evolution
+    autoDeployTrigger: "off"          # version figée : on ne redéploie pas à chaque commit
+    healthCheckPath: /
+    envVars:
+      - key: SERVER_PORT
+        value: "10000"                # port que Render attend (PORT=10000 par défaut)
+      - key: SERVER_URL
+        sync: false                   # https://<nom-du-service-evolution>.onrender.com (visible dans Render après création)
+      - key: AUTHENTICATION_API_KEY
+        sync: false                   # chaîne aléatoire longue ; la MÊME valeur va dans EVOLUTION_API_KEY du service agent24
+      - key: DATABASE_PROVIDER
+        value: postgresql
+      - key: DATABASE_CONNECTION_URI
+        sync: false                   # postgresql://evolution.<ref>:<MDP_EVO>@<hôte-pooler>:5432/postgres?schema=evolution&connection_limit=4
+      - key: DATABASE_SAVE_DATA_INSTANCE
+        value: "true"
+      - key: DATABASE_SAVE_DATA_NEW_MESSAGE
+        value: "true"                 # nécessaire : l'application retrouve ici le message pour en extraire le vocal
+      - key: DATABASE_SAVE_DATA_CONTACTS
+        value: "false"                # le reste est coupé pour ménager les 500 Mo de Supabase et la RAM
+      - key: DATABASE_SAVE_DATA_CHATS
+        value: "false"
+      - key: DATABASE_SAVE_DATA_HISTORIC
+        value: "false"
+      - key: DATABASE_SAVE_DATA_LABELS
+        value: "false"
+      - key: CACHE_REDIS_ENABLED
+        value: "true"                 # les clés de chiffrement de la session y vivent : sans elles, il faudrait rescanner le QR
+      - key: CACHE_REDIS_URI
+        fromService:
+          type: keyvalue
+          name: evolution-redis
+          property: connectionString
+      - key: CACHE_REDIS_PREFIX_KEY
+        value: evolution
+      - key: CACHE_LOCAL_ENABLED
+        value: "false"
+      - key: TELEMETRY_ENABLED
+        value: "false"
+      - key: LOG_LEVEL
+        value: ERROR,WARN,INFO
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=380   # reste sous les 512 Mo du plan gratuit
+
+  - type: keyvalue
+    name: evolution-redis
+    plan: free
+    region: frankfurt
+    maxmemoryPolicy: noeviction
+    ipAllowList: []                   # accessible uniquement par vos services Render

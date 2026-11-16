@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Publication{% endblock %}
+{% block content %}
+<div class="top"><div><a class="sub" href="/console/posts">← Publications</a>
+  <h1>{{ 'Nouvelle publication' if not post else ('Publication' if readonly else 'Modifier la publication') }}{% if post %} <span class="badge b-{{ post.status }}" style="vertical-align:middle">{{ post.label }}</span>{% endif %}</h1></div></div>
+<div id="app" data-id="{{ post.id if post else '' }}" data-status="{{ post.status if post else 'draft' }}" data-has-image="{{ 1 if post and post.has_image else 0 }}" data-prefill="{{ prefill or '' }}"
+     data-scheduled="{{ (post.scheduled_for|local('%Y-%m-%dT%H:%M')) if post and post.scheduled_for else '' }}" data-name="{{ tenant_name }}" data-source="{{ post.source if post else 'human' }}">
+{% if post and post.error %}<div class="err"><b>{{ 'La dernière tentative a échoué' if post.status == 'failed' else 'Nouvelle tentative automatique prévue' }} :</b> {{ post.error }}</div>{% endif %}
+<div class="editor">
+  <div>
+  {% if not readonly %}
+    <div class="aipanel"><label for="brief">✨ Rédiger avec l'IA</label>
+      <textarea id="brief" placeholder="Ex. : annonce la nouvelle robe de soirée, en insistant sur la série limitée" maxlength="1000"></textarea>
+      <div class="actions" style="margin-top:8px"><select id="product" style="max-width:300px"><option value="">Sans produit précis</option>{% for p in products %}<option value="{{ p.id }}" {{ 'selected' if post and post.product_sku == p.id }}>{{ p.name }} · {{ p.price|fcfa }}</option>{% endfor %}</select>
+      <button class="btn sm" id="gen" type="button">Rédiger</button></div><div id="warnings"></div>
+      <div class="sub" style="margin-top:6px">L'IA s'appuie uniquement sur la fiche produit et vos informations officielles. Relisez toujours avant de publier.</div></div>
+    <div class="card">
+      <label for="message">Texte de la publication</label><textarea id="message" style="min-height:190px" maxlength="3000" placeholder="Écrivez votre publication…">{{ post.message if post else '' }}</textarea><div class="counter"><span id="count">0</span> / 3000</div>
+      <label style="margin-top:12px">Image (optionnelle)</label>
+      <div class="imgbox"><input type="file" id="file" accept="image/jpeg,image/png,image/gif" style="display:none"><button class="btn ghost sm" id="pick" type="button">Choisir une image</button> <button class="btn danger sm" id="unpick" type="button" hidden>Retirer l'image</button><div class="sub" style="margin-top:6px">JPEG, PNG ou GIF · 8 Mo maximum</div></div>
+      <label for="when" style="margin-top:12px">Programmer pour (heure locale)</label><input id="when" type="datetime-local">
+      <div class="actions" style="margin-top:16px"><button class="btn ghost" id="save" type="button">Enregistrer le brouillon</button><button class="btn ghost" id="schedule" type="button">Programmer</button><button class="btn" id="publish" type="button">Publier maintenant</button>
+        {% if post and post.status == 'scheduled' %}<button class="btn ghost" id="unschedule" type="button">Annuler la programmation</button>{% endif %}
+        {% if post %}<button class="btn danger" id="del" type="button" style="margin-left:auto">Supprimer</button>{% endif %}</div>
+    </div>
+  {% else %}
+    <div class="card"><div class="txt" style="white-space:pre-wrap;overflow-wrap:anywhere">{{ post.message or '(image seule)' }}</div>
+      <div class="sub" style="margin-top:12px">{% if post.published_at %}Publiée le {{ post.published_at|local('%d/%m/%Y à %H:%M') }}{% endif %}{% if post.source == 'ai' %} · rédigée avec l'IA{% endif %}</div>
+      {% if post.status == 'published' %}<div class="actions" style="margin-top:14px"><a class="btn ghost sm" href="{{ post.permalink }}" target="_blank" rel="noopener noreferrer">Voir sur Facebook</a><button class="btn ghost sm" id="stats" type="button">Actualiser les statistiques</button><button class="btn danger sm" id="del" type="button">Retirer de Facebook</button></div>
+      <div id="statline" class="sub" style="margin-top:10px">{% if post.reactions is not none %}👍 {{ post.reactions }} réactions · 💬 {{ post.comments }} commentaires · ↗ {{ post.shares }} partages (mis à jour {{ post.stats_at|ago }}){% else %}Statistiques non chargées.{% endif %}</div>{% endif %}
+      <div class="actions" style="margin-top:14px"><button class="btn ghost sm" id="dup" type="button">Dupliquer en brouillon</button></div></div>
+    <textarea id="message" hidden>{{ post.message }}</textarea>
+  {% endif %}
+  </div>
+  <div class="fbcard"><div class="h"><div class="av">{{ tenant_name|initial }}</div><div><b>{{ tenant_name }}</b><span>Aperçu · Maintenant · 🌐</span></div></div>
+    <div class="t" id="pv-text"></div><img id="pv-img" alt="" hidden><div class="a"><span>👍 J'aime</span><span>💬 Commenter</span><span>↗ Partager</span></div></div>
+</div></div>
+{% endblock %}
+{% block scripts %}<script>
+(function(){
+  const app=document.getElementById('app'); let postId=app.dataset.id||null; let source=app.dataset.source||'human';
+  let hasImage=app.dataset.hasImage==='1', file=null, imageRemoved=false;
+  const msg=document.getElementById('message'), pvText=document.getElementById('pv-text'), pvImg=document.getElementById('pv-img');
+  const $=id=>document.getElementById(id);
+  function toast(t,err){const d=document.createElement('div');d.className='toast'+(err?' err':'');d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),7000);}
+  async function api(url,method,body,headers){
+    const r=await fetch(url,{method,credentials:'same-origin',headers:headers||{'Content-Type':'application/json'},body:body instanceof Blob?body:(body===undefined?undefined:JSON.stringify(body))});
+    const j=await r.json().catch(()=>({})); if(r.status===401){location.href='/console/login';throw new Error('login');}
+    if(!r.ok) throw new Error(j.detail||'Action impossible.'); return j;
+  }
+  function paint(){
+    pvText.textContent=msg.value; if($('count')) $('count').textContent=msg.value.length;
+    if(file){pvImg.src=URL.createObjectURL(file);pvImg.hidden=false;}
+    else if(hasImage&&!imageRemoved&&postId){pvImg.src='/console/post-media/'+postId+'?t='+Date.now();pvImg.hidden=false;}
+    else pvImg.hidden=true;
+    if($('unpick')) $('unpick').hidden=pvImg.hidden;
+  }
+  msg.addEventListener('input',paint); paint();
+  if(!app.dataset.id){ /* préremplissage de la date (calendrier) */ if(app.dataset.prefill&&$('when')) $('when').value=app.dataset.prefill; }
+  else if(app.dataset.scheduled&&$('when')) $('when').value=app.dataset.scheduled;
+  if($('when')){const n=new Date();n.setMinutes(n.getMinutes()-n.getTimezoneOffset()+2);$('when').min=n.toISOString().slice(0,16);}
+
+  if($('pick')){
+    $('pick').onclick=()=>$('file').click();
+    $('file').onchange=()=>{const f=$('file').files[0]; if(!f) return; if(f.size>8000000){toast('Image trop volumineuse (8 Mo maximum).',true);return;} file=f;imageRemoved=false;paint();};
+    $('unpick').onclick=()=>{file=null;$('file').value='';if(hasImage)imageRemoved=true;paint();};
+  }
+  async function save(){
+    const body={message:msg.value,product_sku:$('product')?$('product').value:null,source};
+    if(!postId){const j=await api('/console/api/posts','POST',body);postId=j.id;history.replaceState(null,'','/console/posts/'+postId);}
+    else await api('/console/api/posts/'+postId,'PUT',body);
+    if(file){await api('/console/api/posts/'+postId+'/image','POST',file,{'Content-Type':file.type});hasImage=true;file=null;$('file').value='';}
+    else if(imageRemoved){await api('/console/api/posts/'+postId+'/image/remove','POST',{});hasImage=false;imageRemoved=false;}
+    paint();
+  }
+  function busy(on){document.querySelectorAll('#save,#schedule,#publish,#gen,#unschedule,#del').forEach(b=>b&&(b.disabled=on));}
+  async function run(fn){busy(true);try{await fn();}catch(e){if(e.message!=='login')toast(e.message,true);}finally{busy(false);}}
+
+  if($('gen')) $('gen').onclick=()=>run(async()=>{
+    const j=await api('/console/api/social/generate','POST',{brief:$('brief').value,product_sku:$('product').value||null});
+    msg.value=j.text; source='ai'; paint();
+    $('warnings').innerHTML=''; (j.warnings||[]).forEach(w=>{const d=document.createElement('div');d.className='warn';d.textContent=w;$('warnings').appendChild(d);});
+  });
+  if($('save')) $('save').onclick=()=>run(async()=>{await save();toast('Brouillon enregistré.');});
+  if($('schedule')) $('schedule').onclick=()=>run(async()=>{
+    if(!$('when').value){toast('Choisissez la date et l\'heure de publication.',true);return;}
+    await save(); await api('/console/api/posts/'+postId+'/schedule','POST',{when_local:$('when').value}); location.href='/console/posts?ok=post_scheduled';
+  });
+  if($('publish')) $('publish').onclick=()=>run(async()=>{
+    if(!msg.value.trim()&&!file&&!hasImage){toast('Ajoutez un texte ou une image.',true);return;}
+    if(!confirm('Publier maintenant sur la page Facebook ?')) return;
+    await save(); const j=await api('/console/api/posts/'+postId+'/publish','POST',{});
+    if(j.status==='published') location.href='/console/posts/'+postId+'?ok=post_published'; else {toast(j.error||'La publication a échoué.',true);setTimeout(()=>location.reload(),2500);}
+  });
+  if($('unschedule')) $('unschedule').onclick=()=>run(async()=>{await api('/console/api/posts/'+postId+'/unschedule','POST',{});location.href='/console/posts/'+postId;});
+  if($('del')) $('del').onclick=()=>run(async()=>{
+    const pub=app.dataset.status==='published';
+    if(!confirm(pub?'Retirer cette publication de Facebook ? Elle disparaîtra de la page.':'Supprimer cette publication ?')) return;
+    await api('/console/api/posts/'+postId+'/delete','POST',{}); location.href='/console/posts?ok=post_deleted';
+  });
+  if($('stats')) $('stats').onclick=()=>run(async()=>{const j=await api('/console/api/posts/'+postId+'/stats','POST',{});$('statline').textContent='👍 '+j.reactions+' réactions · 💬 '+j.comments+' commentaires · ↗ '+j.shares+' partages (à l\'instant)';});
+  if($('dup')) $('dup').onclick=()=>run(async()=>{const j=await api('/console/api/posts','POST',{message:msg.value,source});location.href='/console/posts/'+j.id;});
+})();
+</script>{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier' if editing else 'Nouveau' }} produit{% endblock %}
+{% block content %}
+<div class="top"><div><a class="sub" href="/console/catalog">← Catalogue</a><h1>{{ 'Modifier le produit' if editing else 'Nouveau produit' }}</h1></div></div>
+{% if errors %}<div class="err"><b>Corrigez ces points :</b><ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" class="card" style="max-width:860px">
+  <div class="row"><div><label for="name">Nom du produit *</label><input id="name" name="name" value="{{ f.name }}" required maxlength="120"></div>
+  <div><label for="category">Catégorie</label><input id="category" name="category" value="{{ f.category }}" placeholder="robes, ensembles, accessoires…" maxlength="60"></div></div>
+  <div class="row"><div><label for="price">Prix (FCFA) *</label><input id="price" name="price" value="{{ f.price }}" inputmode="numeric" required placeholder="32000"></div>
+  <div><label for="sku">Référence</label>{% if editing %}<input id="sku" value="{{ f.sku }}" disabled>{% else %}<input id="sku" name="sku" value="{{ f.sku }}" placeholder="Laisser vide pour la générer" maxlength="40">{% endif %}</div></div>
+  <div style="margin-bottom:14px"><label for="description">Description (lue par l'agent pour conseiller le client)</label><textarea id="description" name="description" maxlength="1000">{{ f.description }}</textarea></div>
+  <div style="margin-bottom:14px"><label for="tags">Mots-clés (séparés par des virgules)</label><input id="tags" name="tags" value="{{ f.tags }}" placeholder="wax, cérémonie, longue"></div>
+  <label>Variantes et stock *</label><div class="sub" style="margin-bottom:8px">Une ligne par taille/couleur. Le stock diminue automatiquement à chaque paiement confirmé.</div>
+  <div id="variants">{% for v in f.variants %}<div class="vrow"><input name="variant_size" value="{{ v.size }}" placeholder="Taille (S, M, L…)"><input name="variant_color" value="{{ v.color }}" placeholder="Couleur"><input name="variant_stock" value="{{ v.stock }}" inputmode="numeric" placeholder="Stock"><button class="btn danger sm" type="button" onclick="this.parentNode.remove()" title="Retirer">✕</button></div>{% endfor %}</div>
+  <button class="btn ghost sm" type="button" id="addv">+ Ajouter une variante</button>
+  <div class="actions" style="margin-top:22px"><button class="btn" type="submit">Enregistrer</button><a class="btn ghost" href="/console/catalog">Annuler</a></div>
+</form>
+{% if editing %}
+<div class="card" style="max-width:860px;margin-top:18px" id="photos-card" data-sku="{{ f.sku }}" data-max="{{ max_photos }}">
+  <b>Photos du produit</b>
+  <div class="sub" style="margin:4px 0 10px">L'agent envoie ces photos aux clients (Messenger) quand ils veulent voir l'article. La première est la photo principale. {{ max_photos }} photos maximum.</div>
+  <div class="photos" id="photos">{% for ph in photos %}<div class="ph" data-id="{{ ph.id }}"><img src="/console/catalog/images/{{ ph.id }}" alt="Photo" loading="lazy">{% if loop.first %}<span class="flag">Principale</span>{% endif %}<div class="bar"><button type="button" class="cover" {% if loop.first %}hidden{% endif %}>★ Principale</button><button type="button" class="del">Supprimer</button></div></div>{% endfor %}</div>
+  <label class="dz" id="dz" for="pfile" style="display:block;cursor:pointer"><b>+ Ajouter des photos</b><div class="sub">Cliquez ou déposez des images ici (JPEG, PNG, WebP). Elles sont redimensionnées automatiquement.</div></label>
+  <input type="file" id="pfile" accept="image/*" multiple hidden>
+  <div class="sub" id="pstatus" style="margin-top:8px" aria-live="polite"></div>
+</div>
+{% else %}
+<div class="sub" style="max-width:860px;margin-top:14px">📷 Les photos s'ajoutent juste après l'enregistrement du produit.</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script>
+document.getElementById('addv').onclick=()=>{const d=document.createElement('div');d.className='vrow';
+d.innerHTML='<input name="variant_size" placeholder="Taille (S, M, L…)"><input name="variant_color" placeholder="Couleur"><input name="variant_stock" inputmode="numeric" placeholder="Stock"><button class="btn danger sm" type="button" title="Retirer">✕</button>';
+d.querySelector('button').onclick=()=>d.remove();document.getElementById('variants').appendChild(d);};
+
+{% if editing %}(function(){
+  const card=document.getElementById('photos-card'); if(!card) return;
+  const sku=card.dataset.sku, max=+card.dataset.max, grid=document.getElementById('photos'), st=document.getElementById('pstatus'), dz=document.getElementById('dz'), inp=document.getElementById('pfile');
+  const api=(p)=>'/console/api/catalog/'+encodeURIComponent(sku)+'/images'+p;
+  function say(t,err){st.textContent=t; st.style.color=err?'#b3261e':'';}
+  function repaint(){[...grid.children].forEach((c,i)=>{const f=c.querySelector('.flag'); if(i===0&&!f){const s=document.createElement('span');s.className='flag';s.textContent='Principale';c.insertBefore(s,c.querySelector('.bar'));} if(i!==0&&f) f.remove(); c.querySelector('.cover').hidden=(i===0);});}
+  function tile(id){
+    const d=document.createElement('div'); d.className='ph'; d.dataset.id=id;
+    d.innerHTML='<img alt="Photo"><div class="bar"><button type="button" class="cover">★ Principale</button><button type="button" class="del">Supprimer</button></div>';
+    d.querySelector('img').src='/console/catalog/images/'+id; grid.appendChild(d); repaint(); return d;
+  }
+  // Réduction côté navigateur : photo de téléphone (5-10 Mo) -> JPEG 1600 px (~300 Ko). Le serveur revalide et ré-encode de toute façon.
+  function shrink(file){return new Promise((ok,ko)=>{
+    const url=URL.createObjectURL(file), img=new Image();
+    img.onload=()=>{const k=Math.min(1,1600/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
+      const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url); c.toBlob(b=>b?ok(b):ko(new Error('conversion impossible')),'image/jpeg',0.86);};
+    img.onerror=()=>{URL.revokeObjectURL(url); ko(new Error("fichier illisible"));}; img.src=url;});}
+  async function upload(files){
+    const list=[...files].filter(f=>f.type.startsWith('image/'));
+    if(!list.length){say("Choisissez des fichiers image.",true);return;}
+    for(const f of list){
+      if(grid.children.length>=max){say(max+' photos maximum : supprimez-en une avant d\'en ajouter.',true);break;}
+      say('Envoi de '+f.name+'…');
+      try{
+        const blob=await shrink(f).catch(()=>f);       // si le navigateur ne sait pas la lire (ex. HEIC), on envoie l'original : le serveur tranchera
+        const r=await fetch(api(''),{method:'POST',credentials:'same-origin',headers:{'Content-Type':blob.type||'image/jpeg'},body:blob});
+        const j=await r.json().catch(()=>({}));
+        if(r.status===401){location.href='/console/login';return;}
+        if(!r.ok){say((j.detail||'Envoi impossible.')+' ('+f.name+')',true);continue;}
+        tile(j.id); say('Photo ajoutée.');
+      }catch(e){say("Envoi impossible : "+e.message,true);}
+    }
+    inp.value='';
+  }
+  inp.onchange=()=>upload(inp.files);
+  ['dragover','dragenter'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('over');}));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('over');}));
+  dz.addEventListener('drop',e=>upload(e.dataTransfer.files));
+  grid.addEventListener('click',async e=>{
+    const t=e.target.closest('button'); if(!t) return; const tileEl=t.closest('.ph'), id=tileEl.dataset.id;
+    if(t.classList.contains('del')){
+      if(!confirm('Supprimer cette photo ?')) return;
+      const r=await fetch(api('/'+id+'/delete'),{method:'POST',credentials:'same-origin'});
+      if(r.ok){tileEl.remove();repaint();say('Photo supprimée.');} else say('Suppression impossible.',true);
+    } else if(t.classList.contains('cover')){
+      const r=await fetch(api('/'+id+'/cover'),{method:'POST',credentials:'same-origin'});
+      if(r.ok){grid.insertBefore(tileEl,grid.firstChild);repaint();say('Photo principale mise à jour.');} else say('Action impossible.',true);
+    }
+  });
+})();{% endif %}
+</script>{% endblock %}

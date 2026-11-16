@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Conversations{% endblock %}
+{% block bodyclass %}{{ 'showlist' if not current }}{% endblock %}
+{% block content %}
+<div class="wa">
+  <aside class="wa-list">
+    <div class="wa-listhead"><input class="search" id="search" type="search" placeholder="Rechercher une conversation" autocomplete="off">
+      <div class="chips"><button class="chip on" type="button" data-f="all">Toutes</button><button class="chip" type="button" data-f="human">À traiter</button></div></div>
+    <div class="convs" id="convlist">{% include "_conv_list.html" %}</div>
+  </aside>
+  {% if current %}
+  <section class="wa-thread" id="thread" data-id="{{ current.id }}" data-status="{{ current.status }}">
+    <div class="wa-head"><div class="who"><a class="backbtn" href="/console/conversations?list=1" title="Retour">←</a><div class="av">{{ current.label|initial }}</div><div><b>{{ current.label }}</b><div class="sub" id="statuslabel"></div></div></div>
+      <div class="actions"><button class="btn ghost sm" id="takeover" type="button">Prendre la main</button><button class="btn ghost sm" id="release" type="button">Rendre à l'agent</button></div></div>
+    <div class="banner" id="banner"></div>
+    <div class="msgs" id="msgs">{% set ns = namespace(day=None) %}{% for m in msgs %}{% if m.day != ns.day %}<div class="daysep" data-day="{{ m.day }}"><span>{{ m.day_label }}</span></div>{% set ns.day = m.day %}{% endif %}{% include "_message.html" %}{% endfor %}</div>
+    <div class="wa-comp" id="comp">
+      <textarea id="text" rows="1" placeholder="Écrire un message" maxlength="1800"></textarea>
+      <button class="rbtn ghost" id="mic" type="button" title="Enregistrer un message vocal"><svg class="ico" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      <button class="rbtn" id="send" type="button" title="Envoyer" hidden><svg class="ico" viewBox="0 0 24 24"><path d="M4 12 20 4l-4 16-4-6-8-2Z"/></svg></button>
+      <div class="recbar" id="recbar" hidden>
+        <button class="rbtn ghost" id="cancelrec" type="button" title="Annuler"><svg class="ico" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+        <span class="dotrec"></span><span id="timer">0:00</span><span class="grow sub">Enregistrement en cours…</span>
+        <button class="rbtn" id="sendrec" type="button" title="Envoyer le vocal"><svg class="ico" viewBox="0 0 24 24"><path d="M4 12 20 4l-4 16-4-6-8-2Z"/></svg></button></div>
+    </div>
+  </section>
+  {% else %}<section class="wa-thread"><div class="empty" style="margin:auto">Sélectionnez une conversation.</div></section>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+  // --- liste : recherche, filtre, actualisation ---
+  const list=document.getElementById('convlist'), search=document.getElementById('search');
+  let filter='all';
+  function applyFilter(){
+    const q=search.value.trim().toLowerCase();
+    list.querySelectorAll('.conv').forEach(c=>{
+      const okQ=!q||c.dataset.search.includes(q), okF=filter==='all'||c.dataset.status===filter;
+      c.style.display=(okQ&&okF)?'':'none';
+    });
+  }
+  search.addEventListener('input',applyFilter);
+  document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{filter=b.dataset.f;document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===b));applyFilter();});
+  const thread=document.getElementById('thread');
+  const selected=thread?thread.dataset.id:'';
+  async function refreshList(){
+    try{const r=await fetch('/console/fragments/conversation-list'+(selected?'?selected='+selected:''),{credentials:'same-origin'});
+      if(r.status===401){location.href='/console/login';return;}
+      if(r.ok){list.innerHTML=await r.text();applyFilter();}}catch(e){}
+  }
+  setInterval(refreshList,6000);
+  if(!thread) return;
+
+  // --- fil de discussion ---
+  const box=document.getElementById('msgs'), id=thread.dataset.id;
+  const seen=new Set([...box.querySelectorAll('.msg')].map(e=>e.dataset.id));
+  const lastMsg=[...box.querySelectorAll('.msg')].pop();
+  let lastAt=lastMsg?lastMsg.dataset.at:null, lastDay=lastMsg?lastMsg.dataset.day:null, status=thread.dataset.status;
+  const who={agent:'Agent IA',human:'Vous'};
+  function paintStatus(){
+    thread.dataset.status=status;
+    const b=document.getElementById('banner'); b.className='banner '+status;
+    b.textContent = status==='human' ? "Vous avez la main : l'agent est en pause sur cette conversation." : (status==='agent' ? "L'agent IA répond automatiquement. Écrivez ou enregistrez un vocal pour prendre la main." : "Conversation clôturée.");
+    document.getElementById('statuslabel').textContent = status==='human'?'Pris en charge par vous':(status==='agent'?"Géré par l'agent IA":'Clôturée');
+    document.getElementById('takeover').hidden = status!=='agent';
+    document.getElementById('release').hidden = status!=='human';
+  }
+  function div(cls,text){const d=document.createElement('div'); if(cls)d.className=cls; if(text!==undefined)d.textContent=text; return d;}
+  function el(m){
+    const d=div('msg msg-'+m.author); d.dataset.id=m.id; d.dataset.at=m.at; d.dataset.day=m.day;
+    const bub=div('bubble'); d.appendChild(bub);
+    if(who[m.author]) bub.appendChild(div('who',who[m.author]));
+    if(m.image_url){
+      const lk=document.createElement('a'); lk.href=m.image_url; lk.target='_blank'; lk.rel='noopener';
+      const im=document.createElement('img'); im.className='pic'; im.src=m.image_url; im.alt='Photo'; im.loading='lazy'; lk.appendChild(im); bub.appendChild(lk);
+      if(m.text) bub.appendChild(div('tr',m.text));
+      if(m.note) bub.appendChild(div('note',"Vu par l'agent : "+m.note));
+    } else if(m.audio_url){
+      const a=document.createElement('audio'); a.controls=true; a.preload='none'; a.src=m.audio_url; bub.appendChild(a);
+      if(m.text) bub.appendChild(div('tr','« '+m.text+' »'));
+    } else if(m.text){ bub.appendChild(div('txt',m.text)); }
+    const t=div('t',m.time);
+    if(m.author==='agent'||m.author==='human'){
+      if(m.delivery==='failed'){const f=document.createElement('span'); f.className='fail'; f.textContent=' ⚠ non envoyé'; t.appendChild(f);} else t.appendChild(document.createTextNode(' ✓'));
+    }
+    bub.appendChild(t); return d;
+  }
+  function add(list_){
+    const atBottom = box.scrollHeight-box.scrollTop-box.clientHeight<90; let added=false;
+    for(const m of list_){
+      if(seen.has(m.id)) continue; seen.add(m.id);
+      if(m.day!==lastDay){const s=div('daysep'); s.dataset.day=m.day; const sp=document.createElement('span'); sp.textContent=m.day_label; s.appendChild(sp); box.appendChild(s); lastDay=m.day;}
+      box.appendChild(el(m)); lastAt=m.at; added=true;
+    }
+    if(added&&atBottom) box.scrollTop=box.scrollHeight;
+  }
+  async function poll(){
+    try{
+      const r=await fetch('/console/api/conversations/'+id+'/messages'+(lastAt?'?after='+encodeURIComponent(lastAt):''),{credentials:'same-origin'});
+      if(r.status===401){location.href='/console/login';return;}
+      if(r.ok){const j=await r.json(); if(j.status!==status){status=j.status;paintStatus();} add(j.messages);}
+    }catch(e){}
+  }
+  async function setStatus(s){
+    const r=await fetch('/console/api/conversations/'+id+'/status',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:s})});
+    if(r.ok){status=s;paintStatus();refreshList();}
+  }
+
+  // --- écrire ---
+  const t=document.getElementById('text'), sendBtn=document.getElementById('send'), mic=document.getElementById('mic');
+  function toggleButtons(){const has=t.value.trim().length>0; sendBtn.hidden=!has; mic.hidden=has;}
+  function grow(){t.style.height='44px'; t.style.height=Math.min(140,t.scrollHeight)+'px';}
+  t.addEventListener('input',()=>{toggleButtons();grow();});
+  t.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendText();}});
+  async function sendText(){
+    const text=t.value.trim(); if(!text) return; sendBtn.disabled=true;
+    try{
+      const r=await fetch('/console/api/conversations/'+id+'/reply',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+      const j=await r.json().catch(()=>({}));
+      if(r.ok){t.value='';toggleButtons();grow();status='human';paintStatus();add([j.message]);box.scrollTop=box.scrollHeight;refreshList();}
+      else alert(j.detail||'Envoi impossible.');
+    }finally{sendBtn.disabled=false;t.focus();}
+  }
+  sendBtn.onclick=sendText;
+
+  // --- vocal : enregistrement navigateur -> WAV 16 bits mono 16 kHz -> envoi ---
+  const recbar=document.getElementById('recbar'), timer=document.getElementById('timer');
+  let rec=null; const MAX_SECONDS=120;
+  function fmt(s){return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');}
+  function encodeWav(chunks,inRate){
+    let total=0; for(const c of chunks) total+=c.length;
+    const outRate=Math.min(16000,inRate), ratio=inRate/outRate, outLen=Math.floor(total/ratio);
+    const flat=new Float32Array(total); let o=0; for(const c of chunks){flat.set(c,o);o+=c.length;}
+    const pcm=new Int16Array(outLen);
+    for(let i=0;i<outLen;i++){
+      const s0=Math.floor(i*ratio), s1=Math.min(total,Math.max(s0+1,Math.floor((i+1)*ratio))); let sum=0,n=0;
+      for(let j=s0;j<s1;j++){sum+=flat[j];n++;}
+      const v=Math.max(-1,Math.min(1,n?sum/n:0)); pcm[i]=v<0?v*0x8000:v*0x7FFF;
+    }
+    const buf=new ArrayBuffer(44+pcm.length*2), dv=new DataView(buf);
+    const w=(off,str)=>{for(let k=0;k<str.length;k++)dv.setUint8(off+k,str.charCodeAt(k));};
+    w(0,'RIFF'); dv.setUint32(4,36+pcm.length*2,true); w(8,'WAVE'); w(12,'fmt '); dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,1,true);
+    dv.setUint32(24,outRate,true); dv.setUint32(28,outRate*2,true); dv.setUint16(32,2,true); dv.setUint16(34,16,true); w(36,'data'); dv.setUint32(40,pcm.length*2,true);
+    new Int16Array(buf,44).set(pcm);
+    return new Blob([buf],{type:'audio/wav'});
+  }
+  function showRec(on){recbar.hidden=!on; t.hidden=on; mic.hidden=on||t.value.trim().length>0; sendBtn.hidden=on||t.value.trim().length===0;}
+  async function startRec(){
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){alert("Le micro n'est disponible que sur une page sécurisée (HTTPS).");return;}
+    let stream; try{stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true}});}
+    catch(e){alert("Accès au micro refusé. Autorisez le micro dans votre navigateur.");return;}
+    const AC=window.AudioContext||window.webkitAudioContext, ctx=new AC(), src=ctx.createMediaStreamSource(stream), proc=ctx.createScriptProcessor(4096,1,1), chunks=[];
+    proc.onaudioprocess=e=>chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+    src.connect(proc); proc.connect(ctx.destination);
+    rec={stream,ctx,src,proc,chunks,start:Date.now(),rate:ctx.sampleRate};
+    rec.timer=setInterval(()=>{const s=(Date.now()-rec.start)/1000; timer.textContent=fmt(s); if(s>=MAX_SECONDS) finishRec(true);},250);
+    timer.textContent='0:00'; showRec(true);
+  }
+  function stopRec(){
+    const r=rec; rec=null; if(!r) return null;
+    clearInterval(r.timer); r.proc.disconnect(); r.src.disconnect(); r.stream.getTracks().forEach(x=>x.stop()); r.ctx.close(); showRec(false); return r;
+  }
+  async function finishRec(send){
+    const r=stopRec(); if(!r||!send) return;
+    if((Date.now()-r.start)<800){return;}
+    const blob=encodeWav(r.chunks,r.rate); document.getElementById('sendrec').disabled=true;
+    try{
+      const resp=await fetch('/console/api/conversations/'+id+'/voice',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'audio/wav'},body:blob});
+      const j=await resp.json().catch(()=>({}));
+      if(resp.ok){status='human';paintStatus();add([j.message]);box.scrollTop=box.scrollHeight;refreshList();}
+      else alert(j.detail||'Envoi du vocal impossible.');
+    }finally{document.getElementById('sendrec').disabled=false;}
+  }
+  mic.onclick=startRec;
+  document.getElementById('cancelrec').onclick=()=>finishRec(false);
+  document.getElementById('sendrec').onclick=()=>finishRec(true);
+  window.addEventListener('beforeunload',()=>{if(rec) stopRec();});
+
+  document.getElementById('takeover').onclick=()=>setStatus('human');
+  document.getElementById('release').onclick=()=>setStatus('agent');
+  box.scrollTop=box.scrollHeight; paintStatus(); toggleButtons(); setInterval(poll,2500); applyFilter();
+})();
+</script>{% endblock %}

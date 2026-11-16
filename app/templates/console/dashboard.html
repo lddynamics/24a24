@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Tableau de bord{% endblock %}
+{% block content %}
+<div class="top"><div><h1>Tableau de bord</h1><div class="sub">Activité de votre employé IA · {{ tenant_name }}</div></div></div>
+<div class="grid kpis">
+  <div class="card kpi hero"><div class="l">Chiffre d'affaires encaissé</div><div class="v">{{ d.revenue|fcfa }}</div><div class="h">{{ d.paid_orders }} commande{{ 's' if d.paid_orders != 1 }} payée{{ 's' if d.paid_orders != 1 }}{% if d.pending %} · {{ d.pending|fcfa }} en attente{% endif %}</div></div>
+  <div class="card kpi"><div class="l">Conversations</div><div class="v">{{ d.conversations }}</div><div class="h">{{ d.conversations_today }} active{{ 's' if d.conversations_today != 1 }} aujourd'hui</div></div>
+  <div class="card kpi"><div class="l">Taux de conversion</div><div class="v">{{ d.conversion }} %</div><div class="h">commandes payées / conversations</div></div>
+  <div class="card kpi"><div class="l">Temps de réponse médian</div><div class="v">{% if d.median_seconds is none %}—{% else %}{{ d.median_seconds }} s{% endif %}</div><div class="h">{{ d.inbound_24h }} messages reçus · {{ d.outbound_24h }} envoyés (24 h)</div></div>
+  <div class="card kpi"><div class="l">Intervention humaine</div><div class="v">{{ d.human_rate }} %</div><div class="h">{{ d.human_conversations }} conversation{{ 's' if d.human_conversations != 1 }} en cours avec un humain</div></div>
+</div>
+<div class="grid two">
+  <div class="card"><h2>Encaissements des 7 derniers jours</h2>
+    <div class="bars">{% for p in d.series %}<div class="bar" title="{{ p.orders }} paiement(s) · {{ p.amount|fcfa }}"><b>{% if p.amount %}{{ (p.amount / 1000)|round(1) }}k{% endif %}</b><i style="height:{{ p.h }}%"></i><span>{{ p.label }}</span></div>{% endfor %}</div></div>
+  <div class="card"><h2>À traiter par l'équipe</h2>
+    {% if attention %}{% for c in attention %}<a class="conv" style="padding:8px 0;border:0" href="/console/conversations/{{ c.id }}"><div class="av">{{ c.label|initial }}</div><div><div class="t"><span>{{ c.label }}</span></div><div class="p">{{ c.preview }}</div></div></a>{% endfor %}
+    {% else %}<div class="empty" style="padding:24px">Rien en attente : l'agent gère tout.</div>{% endif %}</div>
+</div>
+<div class="card" style="margin-top:14px"><h2>Dernières commandes</h2>
+{% if orders %}<table><thead><tr><th>Référence</th><th>Client</th><th>Statut</th><th class="num">Total</th><th>Date</th></tr></thead><tbody>
+{% for o in orders %}<tr><td><a href="/console/orders/{{ o.id }}">{{ o.reference }}</a></td><td>{{ o.customer_name }}</td><td><span class="badge b-{{ o.status }}">{{ o.status|order_label }}</span></td><td class="num">{{ o.total|fcfa }}</td><td class="mu sm">{{ o.created_at|local }}</td></tr>{% endfor %}
+</tbody></table>{% else %}<div class="empty">Aucune commande pour le moment.</div>{% endif %}</div>
+{% endblock %}

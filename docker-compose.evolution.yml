@@ -1,0 +1,53 @@
+# Evolution API : passerelle WhatsApp NON officielle (WhatsApp Web / Baileys) pour les prototypes. DEV UNIQUEMENT.
+#   docker compose -f docker-compose.evolution.yml up -d
+# Ne touche pas à la base de l'application (docker-compose.yml) : Evolution a sa propre base et son propre Redis.
+services:
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.3.7   # version figée ; vérifier la dernière sur https://github.com/EvolutionAPI/evolution-api/releases
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_URL: http://localhost:8080
+      AUTHENTICATION_TYPE: apikey
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:?définir EVOLUTION_API_KEY dans .env}
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:evolution_pw@evolution-db:5432/evolution
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"    # nécessaire : Evolution retrouve le message ici pour en extraire le vocal
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://evolution-redis:6379/6
+      CACHE_REDIS_PREFIX_KEY: evolution
+    volumes:
+      - evolution_instances:/evolution/instances   # la session WhatsApp (évite de rescanner le QR à chaque redémarrage)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"        # atteindre l'application lancée sur la machine hôte (Linux)
+    depends_on:
+      evolution-db:
+        condition: service_healthy
+      evolution-redis:
+        condition: service_started
+
+  evolution-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: evolution_pw
+      POSTGRES_DB: evolution
+    volumes:
+      - evolution_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evolution -d evolution"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  evolution-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+volumes:
+  evolution_instances:
+  evolution_pgdata:

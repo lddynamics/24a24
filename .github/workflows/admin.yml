@@ -1,0 +1,94 @@
+# Administration à distance sans installer Python sur votre PC : Actions > « Admin » > Run workflow.
+# Secrets requis (Settings > Secrets and variables > Actions > Secrets) :
+#   MIGRATIONS_DATABASE_URL (URL Supabase du rôle postgres), ENCRYPTION_KEY (la MÊME que sur Render), PAGE_ACCESS_TOKEN,
+#   EVOLUTION_API_KEY et EVOLUTION_WEBHOOK_SECRET (les MÊMES que sur Render). Variables : APP_URL, EVOLUTION_URL.
+name: Admin
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action"
+        type: choice
+        options: [create_tenant, set_config, evolution_instance, add_whatsapp_channel]
+        required: true
+      name:
+        description: "create_tenant : nom du client (ex. Vigo Services)"
+        required: false
+      slug:
+        description: "create_tenant : slug (ex. vigo-services)"
+        required: false
+      sector:
+        description: "create_tenant : secteur (ex. services, commerce)"
+        required: false
+      page_id:
+        description: "create_tenant : identifiant de la page Facebook"
+        required: false
+      instance:
+        description: "evolution_instance / add_whatsapp_channel : nom de l'instance (ex. agent24)"
+        required: false
+      number:
+        description: "evolution_instance : numéro WhatsApp avec indicatif, chiffres seuls (ex. 22901XXXXXXXX) = code d'appairage"
+        required: false
+      tenant_id:
+        description: "set_config / add_whatsapp_channel : UUID du client"
+        required: false
+      config_file:
+        description: "set_config : fichier de config (ex. tenants/vigo-services.json)"
+        required: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      # Valeurs factices : la classe Settings les exige, ces scripts n'en utilisent aucune.
+      DATABASE_URL: postgresql+psycopg://unused:unused@localhost/unused
+      META_APP_SECRET: unused
+      MESSENGER_VERIFY_TOKEN: unused
+      MIGRATIONS_DATABASE_URL: ${{ secrets.MIGRATIONS_DATABASE_URL }}
+      ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+      PAGE_ACCESS_TOKEN: ${{ secrets.PAGE_ACCESS_TOKEN }}
+      EVOLUTION_API_KEY: ${{ secrets.EVOLUTION_API_KEY }}
+      EVOLUTION_WEBHOOK_SECRET: ${{ secrets.EVOLUTION_WEBHOOK_SECRET }}
+      EVOLUTION_API_URL: ${{ vars.EVOLUTION_URL }}
+      APP_URL: ${{ vars.APP_URL }}
+      ACTION: ${{ inputs.action }}
+      I_NAME: ${{ inputs.name }}
+      I_SLUG: ${{ inputs.slug }}
+      I_SECTOR: ${{ inputs.sector }}
+      I_PAGE_ID: ${{ inputs.page_id }}
+      I_INSTANCE: ${{ inputs.instance }}
+      I_NUMBER: ${{ inputs.number }}
+      I_TENANT_ID: ${{ inputs.tenant_id }}
+      I_CONFIG: ${{ inputs.config_file }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Exécuter
+        run: |
+          case "$ACTION" in
+            create_tenant)
+              python -m scripts.create_tenant --name "$I_NAME" --slug "$I_SLUG" --sector "$I_SECTOR" --page-id "$I_PAGE_ID" ;;
+            set_config)
+              python -m scripts.set_tenant_config --tenant-id "$I_TENANT_ID" --file "$I_CONFIG" ;;
+            evolution_instance)
+              # Le premier appel peut être long : Render réveille le service Evolution (jusqu'à ~1 min).
+              if [ -n "$I_NUMBER" ]; then
+                python -m scripts.setup_evolution_instance --instance "$I_INSTANCE" --app-url "$APP_URL" --number "$I_NUMBER"
+              else
+                python -m scripts.setup_evolution_instance --instance "$I_INSTANCE" --app-url "$APP_URL"
+              fi ;;
+            add_whatsapp_channel)
+              ACCESS_TOKEN=inutile python -m scripts.add_channel --tenant-id "$I_TENANT_ID" --channel whatsapp --external-id "$I_INSTANCE" ;;
+          esac
+      - name: QR code éventuel (à télécharger puis scanner)
+        if: ${{ always() && inputs.action == 'evolution_instance' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: qrcode
+          path: qrcode.png
+          if-no-files-found: ignore
+          retention-days: 1

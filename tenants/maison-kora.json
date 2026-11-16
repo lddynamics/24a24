@@ -1,0 +1,291 @@
+{
+  "_note": "DONNÉES FICTIVES DE DÉMONSTRATION pour la présentation aux financeurs. À remplacer par les vraies informations d'un commerce pilote.",
+  "brand": {
+    "pitch": "Maison Kora est une maison de mode féminine de Cotonou. Elle crée des robes et des ensembles aux coupes contemporaines dans des tissus africains (wax, pagne tissé), avec des finitions soignées, en séries limitées.",
+    "values": [
+      "élégance au quotidien",
+      "tissus africains choisis avec soin",
+      "séries limitées",
+      "service attentionné"
+    ]
+  },
+  "tone": {
+    "address": "vouvoiement",
+    "style": "chaleureux, élégant et précis, comme une conseillère de boutique qui connaît parfaitement ses collections",
+    "greeting": "Bonjour et bienvenue chez Maison Kora. Je suis l'assistant virtuel de la maison : je peux vous conseiller, vérifier les tailles disponibles et prendre votre commande. Que cherchez-vous aujourd'hui ?",
+    "do": [
+      "reformuler brièvement le besoin du client avant de proposer",
+      "justifier chaque suggestion par un détail réel de la fiche produit",
+      "proposer une alternative disponible quand une taille manque"
+    ],
+    "avoid": [
+      "les phrases génériques de robot (« Je suis là pour vous aider »)",
+      "les listes de plus de trois articles",
+      "toute promesse de remise ou de délai absente des informations officielles"
+    ]
+  },
+  "tools_enabled": [
+    "get_business_info",
+    "get_catalog",
+    "send_product_image",
+    "create_order",
+    "create_payment_link",
+    "check_payment_status",
+    "escalate_to_human"
+  ],
+  "escalation": {
+    "topics": [
+      "remise ou négociation de prix",
+      "retour ou remboursement",
+      "livraison hors zone",
+      "commande sur mesure",
+      "plainte"
+    ]
+  },
+  "agent": {
+    "max_steps": 8
+  },
+  "business_info": {
+    "presentation": "Maison Kora, boutique de mode féminine à Cotonou. Showroom sur rendez-vous.",
+    "horaires": "Du lundi au samedi, de 9h à 19h. Messages traités 24h/24 par l'assistant virtuel.",
+    "livraison": {
+      "zones": {
+        "Cotonou": {
+          "frais_fcfa": 1500,
+          "delai": "24 à 48 heures"
+        },
+        "Abomey-Calavi": {
+          "frais_fcfa": 2000,
+          "delai": "24 à 48 heures"
+        },
+        "Porto-Novo": {
+          "frais_fcfa": 2500,
+          "delai": "48 à 72 heures"
+        }
+      },
+      "autres_zones": "Non renseigné : transmettre à l'équipe."
+    },
+    "paiement": "Mobile money (MTN MoMo, Moov Money, etc.) et carte bancaire, via un lien de paiement sécurisé. Le paiement se fait avant l'expédition. Des frais de service du prestataire de paiement peuvent s'ajouter au moment du paiement.",
+    "echanges": "Échange de taille possible sous 7 jours, article non porté, avec son étiquette. Les remboursements sont traités par l'équipe.",
+    "retouches": "Non renseigné : transmettre à l'équipe.",
+    "sur_mesure": "Non renseigné : transmettre à l'équipe.",
+    "promotions": "Aucune promotion en cours."
+  },
+  "catalog": {
+    "currency": "XOF",
+    "products": [
+      {
+        "id": "KOR-R01",
+        "name": "Robe Sika",
+        "category": "robes",
+        "price": 32000,
+        "description": "Robe longue en wax bleu indigo et or, col bateau, taille marquée par une ceinture nouée, jupe évasée. Idéale pour une cérémonie en journée.",
+        "tags": [
+          "wax",
+          "cérémonie",
+          "longue",
+          "indigo"
+        ],
+        "variants": [
+          {
+            "size": "S",
+            "color": "Indigo",
+            "stock": 4
+          },
+          {
+            "size": "M",
+            "color": "Indigo",
+            "stock": 6
+          },
+          {
+            "size": "L",
+            "color": "Indigo",
+            "stock": 2
+          },
+          {
+            "size": "XL",
+            "color": "Indigo",
+            "stock": 0
+          }
+        ]
+      },
+      {
+        "id": "KOR-R02",
+        "name": "Robe Adjoké",
+        "category": "robes",
+        "price": 28500,
+        "description": "Robe mi-longue en wax rouge terracotta, manches ballon, dos échancré. Légère et facile à porter, entre bureau et sortie.",
+        "tags": [
+          "wax",
+          "mi-longue",
+          "bureau",
+          "terracotta"
+        ],
+        "variants": [
+          {
+            "size": "S",
+            "color": "Terracotta",
+            "stock": 3
+          },
+          {
+            "size": "M",
+            "color": "Terracotta",
+            "stock": 5
+          },
+          {
+            "size": "L",
+            "color": "Terracotta",
+            "stock": 5
+          }
+        ]
+      },
+      {
+        "id": "KOR-R03",
+        "name": "Robe Fiogbé de soirée",
+        "category": "robes",
+        "price": 45000,
+        "description": "Robe fourreau en pagne tissé vert émeraude, fente discrète, bretelles ajustables. Pièce de soirée en série limitée.",
+        "tags": [
+          "pagne tissé",
+          "soirée",
+          "fourreau",
+          "émeraude",
+          "série limitée"
+        ],
+        "variants": [
+          {
+            "size": "S",
+            "color": "Émeraude",
+            "stock": 2
+          },
+          {
+            "size": "M",
+            "color": "Émeraude",
+            "stock": 1
+          },
+          {
+            "size": "L",
+            "color": "Émeraude",
+            "stock": 0
+          }
+        ]
+      },
+      {
+        "id": "KOR-E01",
+        "name": "Ensemble Zinsou",
+        "category": "ensembles",
+        "price": 38000,
+        "description": "Ensemble deux pièces en wax jaune safran : haut court à nœud et pantalon large taille haute. Moderne et confortable pour la chaleur de Cotonou.",
+        "tags": [
+          "wax",
+          "deux pièces",
+          "pantalon",
+          "safran",
+          "décontracté"
+        ],
+        "variants": [
+          {
+            "size": "S",
+            "color": "Safran",
+            "stock": 3
+          },
+          {
+            "size": "M",
+            "color": "Safran",
+            "stock": 4
+          },
+          {
+            "size": "L",
+            "color": "Safran",
+            "stock": 3
+          }
+        ]
+      },
+      {
+        "id": "KOR-E02",
+        "name": "Ensemble Houé",
+        "category": "ensembles",
+        "price": 42000,
+        "description": "Ensemble jupe crayon et blouse cintrée en pagne tissé noir et ivoire. Sobre et très élégant, pensé pour les réunions importantes.",
+        "tags": [
+          "pagne tissé",
+          "jupe",
+          "blouse",
+          "bureau",
+          "noir",
+          "professionnel"
+        ],
+        "variants": [
+          {
+            "size": "M",
+            "color": "Noir et ivoire",
+            "stock": 3
+          },
+          {
+            "size": "L",
+            "color": "Noir et ivoire",
+            "stock": 2
+          }
+        ]
+      },
+      {
+        "id": "KOR-A01",
+        "name": "Foulard Dantokpa",
+        "category": "accessoires",
+        "price": 8000,
+        "description": "Grand foulard en wax assorti aux couleurs de la collection, à nouer en turban, en ceinture ou autour du cou.",
+        "tags": [
+          "foulard",
+          "wax",
+          "turban",
+          "accessoire",
+          "cadeau"
+        ],
+        "variants": [
+          {
+            "size": "Unique",
+            "color": "Indigo",
+            "stock": 12
+          },
+          {
+            "size": "Unique",
+            "color": "Terracotta",
+            "stock": 9
+          },
+          {
+            "size": "Unique",
+            "color": "Safran",
+            "stock": 7
+          }
+        ]
+      },
+      {
+        "id": "KOR-A02",
+        "name": "Pochette Awalé",
+        "category": "accessoires",
+        "price": 14000,
+        "description": "Pochette rigide en wax et simili cuir, fermeture aimantée et bandoulière amovible. Se marie avec les robes de soirée.",
+        "tags": [
+          "pochette",
+          "sac",
+          "soirée",
+          "wax",
+          "cadeau"
+        ],
+        "variants": [
+          {
+            "size": "Unique",
+            "color": "Or et noir",
+            "stock": 6
+          },
+          {
+            "size": "Unique",
+            "color": "Émeraude",
+            "stock": 2
+          }
+        ]
+      }
+    ]
+  },
+  "order_prefix": "KOR"
+}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Commandes{% endblock %}
+{% block content %}
+<div class="top"><div><h1>Commandes</h1><div class="sub">Commandes prises par l'agent et statut des paiements.</div></div>
+  <div class="actions"><a class="btn sm {{ '' if not status else 'ghost' }}" href="/console/orders">Toutes</a>{% for s in statuses %}<a class="btn sm {{ '' if status == s else 'ghost' }}" href="/console/orders?status={{ s }}">{{ s|order_label }}</a>{% endfor %}</div></div>
+<div class="card">{% if orders %}<table><thead><tr><th>Référence</th><th>Client</th><th>Articles</th><th>Livraison</th><th>Statut</th><th class="num">Total</th><th>Date</th></tr></thead><tbody>
+{% for o in orders %}<tr><td><a href="/console/orders/{{ o.id }}"><b>{{ o.reference }}</b></a></td><td>{{ o.customer_name }}<div class="mu sm">{{ o.customer_phone }}</div></td>
+<td class="sm">{% for it in o['items'] %}{{ it.quantity }}× {{ it.name }} ({{ it.size }}){% if not loop.last %}<br>{% endif %}{% endfor %}</td><td class="sm">{{ o.delivery_zone }}</td>
+<td><span class="badge b-{{ o.status }}">{{ o.status|order_label }}</span></td><td class="num">{{ o.total|fcfa }}</td><td class="mu sm">{{ o.created_at|local }}</td></tr>{% endfor %}
+</tbody></table>{% else %}<div class="empty">Aucune commande{{ ' avec ce statut' if status }}.</div>{% endif %}</div>
+{% endblock %}
