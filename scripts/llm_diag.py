@@ -15,18 +15,15 @@ import httpx
 
 from app.config import get_settings
 
-CANDIDATES = [
-    "meta/llama-3.3-70b-instruct",
-    "meta/llama-3.1-70b-instruct",
-    "meta/llama-3.1-405b-instruct",
-    "nvidia/llama-3.3-nemotron-super-49b-v1",
-    "nvidia/llama-3.1-nemotron-70b-instruct",
-    "nvidia/nemotron-3-super-120b-a12b",
-    "nvidia/nemotron-3-nano-30b-a3b",
+CANDIDATES = [      # NVIDIA NIM, endpoints gratuits relevés en novembre 2026 : à confirmer avec votre clé (ils changent souvent)
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
-    "mistralai/mistral-large-2-instruct",
-    "qwen/qwen3-235b-a22b",
+    "nvidia/nemotron-3-ultra-550b-a55b",
+    "deepseek-ai/deepseek-v4.1-flash",
+    "z-ai/glm-5.3-flash",
+    "google/gemma-4-31b-it",
+    "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "poolside/laguna-xs-2.1",
 ]
 
 TOOL = {
