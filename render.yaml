@@ -41,7 +41,7 @@ services:
         value: "1"
       # --- IA ---
       - key: AGENT_MODEL
-        value: nvidia/nemotron-3-super-120b-a12b
+        value: nvidia/nemotron-3-ultra-550b-a55b
       - key: LLM_API_KEY
         sync: false
       - key: LLM_BASE_URL
