@@ -1,0 +1,33 @@
+# Teste, avec VOTRE clé NVIDIA, quels modèles répondent ET savent appeler un outil (ce qu'exige l'agent).
+# Secret requis : LLM_API_KEY (la clé « nvapi-... », la même que sur Render).
+# Actions > « LLM check » > Run workflow ; champ « models » vide = sélection par défaut de scripts/llm_diag.py.
+name: LLM check
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: "Modèles à tester, séparés par des espaces (vide = sélection par défaut)"
+        required: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # Valeurs factices : la classe Settings les exige, ce test n'en utilise aucune.
+      DATABASE_URL: postgresql+psycopg://unused:unused@localhost/unused
+      MIGRATIONS_DATABASE_URL: postgresql+psycopg://unused:unused@localhost/unused
+      META_APP_SECRET: unused
+      MESSENGER_VERIFY_TOKEN: unused
+      ENCRYPTION_KEY: unused
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: https://integrate.api.nvidia.com/v1
+      MODELS: ${{ inputs.models }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Tester les modèles
+        run: python -m scripts.llm_diag --test $MODELS
