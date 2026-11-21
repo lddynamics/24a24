@@ -41,7 +41,7 @@ app.include_router(webhooks.router)
 console.install(app)
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     with get_engine().connect() as conn:
         conn.execute(text("SELECT 1"))
